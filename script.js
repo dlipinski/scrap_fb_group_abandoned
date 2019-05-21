@@ -1,3 +1,16 @@
+const clearContent = () => {
+    blueBarDOMInspector.remove()
+    leftCol.remove()
+    rightCol.remove()
+    pagelet_sidebar.remove()
+    pagelet_dock.remove()
+    headerArea.remove()
+    pagelet_group_composer.remove()
+
+    pagelet_group_mall.style['margin-right'] = '-700px'
+    pagelet_group_mall.style['padding-left'] = '500px'
+}
+
 const log = (type, data) => {
     let today = new Date()
     let date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate()
