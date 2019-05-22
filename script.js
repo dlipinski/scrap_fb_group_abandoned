@@ -1,99 +1,101 @@
-const clearContent = () => {
-    //blueBarDOMInspector.remove()
-    leftCol.remove()
-    rightCol.remove()
-    //pagelet_sidebar.remove()
-    pagelet_dock.remove()
-    //headerArea.remove()
-    //pagelet_group_composer.remove()
-    pagelet_group_mall.style['margin-right'] = '-700px'
-    pagelet_group_mall.style['padding-left'] = '500px'
+/* VARIABLES GLOBAL */
+const monthDir = {
+    January: '01',
+    February: '02',
+    March: '03',
+    April: '04',
+    May: '05',
+    June: '06',
+    July: '07',
+    August: '08',
+    September: '09',
+    October: '10',
+    November: '11',
+    December: '12'
+}
+
+
+/* HELPERD */
+const convertTime = timeString => {
+    if(timeString.includes('Yesterday') || timeString.includes('hr') || timeString.includes('min') || timeString.includes('now')){
+        let today = new Date()
+        return timeString.includes('Yesterday') ?  `${today.getFullYear()}-${d2((today.getMonth()+1))}-${d2(today.getDate()-1)}` : `${today.getFullYear()}-${d2(today.getMonth()+1)}-${d2(today.getDate())}`
+    } else {
+        let today = new Date()
+        if(monthDir[timeString.trim().split(' ')[0]]){
+            return `${today.getFullYear()}-${monthDir[timeString.split(' ')[0]]}-${d2(timeString.split(' ')[1].replace(',',''))}`
+        } else {
+            return timeString
+        }
+    }
 }
 const d2 = s => {
     return `0${s}`.slice(-2)
 }
-const log = (type, data) => {
-    let today = new Date()
-    let date = `${today.getFullYear()}-${(today.getMonth()+1)}-${today.getDate()}`
-    let time = `${d2(today.getHours())}:${d2(today.getMinutes())}:${d2(today.getSeconds())}:${d2(today.getMilliseconds())}`
-    console.log(`${date} ${time} | [${type.toUpperCase()}] ${data}`)
+
+
+
+/* PROCESS */
+const processPost = postEl => {
+        return {
+        id: postEl.parentElement.parentElement.id.replace('mall_post_','').replace(':6:0',''),
+        author: postEl.querySelector('.clearfix').querySelectorAll('a')[1].innerHTML,
+        authorUrl: postEl.querySelector('.clearfix').querySelectorAll('a')[1].href.split('?')[0],
+        time: convertTime(postEl.querySelector('.timestampContent').innerHTML),
+        content: postEl.querySelector('.userContent').innerHTML.replace(/<\/?[^>]+(>|$)/g, '').replace('See More',''),
+        likes: postEl.querySelector('[data-testid="UFI2ReactionsCount/sentenceWithSocialContext"]') ? postEl.querySelector('[data-testid="UFI2ReactionsCount/sentenceWithSocialContext"]').children[0].innerHTML : 0
+        }
+}
+const processComments = async postEl => {
+    commentsEl = postEl.querySelector('[data-testid="UFI2CommentsList/root_depth_0"]')
+    await waitForComments(commentsEl)
+    commentsUl = commentsEl.querySelector('ul')
+    comments = []
+    commentsUl.querySelectorAll('li').forEach(commentLi => {
+        try {
+            let commentBody = commentLi.querySelector('[data-testid="UFI2Comment/body"]')
+            comments.push({
+                author: commentBody.children[0].children[0].innerHTML, 
+                authorUrl: commentBody.children[0].children[0].href, 
+                content: commentBody.children[0].children[1].children[0].children[0].innerHTML.replace(/<\/?[^>]+(>|$)/g, '') 
+            })
+        } catch(err) {}
+    })
+    return comments
 }
 
-const processPost = postEl => {
-        id = postEl.parentElement.parentElement.id
-        author = postEl.querySelector('.clearfix').querySelectorAll('a')[1].innerHTML
-        authorUrl = postEl.querySelector('.clearfix').querySelectorAll('a')[1].href.split('?')[0]
-        time = postEl.querySelector('.timestampContent').innerHTML
-        content = postEl.querySelector('.userContent').innerHTML.replace(/<\/?[^>]+(>|$)/g, '').replace('See More','')
-        likes = postEl.querySelector('[data-testid="UFI2ReactionsCount/sentenceWithSocialContext"]') ? postEl.querySelector('[data-testid="UFI2ReactionsCount/sentenceWithSocialContext"]').children[0].innerHTML : 0
-        return  {id, author, authorUrl, time, content, likes}
+
+
+
+/* WAITERS */
+const waitForComments = async (commentsEl) => {
+    let loading = true
+    while(loading) {
+        loading = (await isComments(commentsEl))
+    }
 }
-const isLoading = (commentsEl) => {
+const waitForFeed = async () => {
+    let waiting = true
+    while (waiting) {
+        waiting = !(await isNewFeed())
+    }
+}
+const isComments = (commentsEl) => {
     return new Promise((resolve, reject) => {
+        let loadMore = commentsEl.querySelector('[data-testid="UFI2CommentsPagerRenderer/pager_depth_0"]')
+        if(loadMore) {
+            loadMore.click()
+        }
         setTimeout(()=>{
-            let loadMore = commentsEl.querySelector('[data-testid="UFI2CommentsPagerRenderer/pager_depth_0"]')
+            loadMore = commentsEl.querySelector('[data-testid="UFI2CommentsPagerRenderer/pager_depth_0"]')
             if(loadMore) {
                 loadMore.click()
                 resolve(true)
             } else {
                 resolve(false)
             }
-        },20)
+        },500)
     })
-}
-const loadAllComments = async (commentsEl) => {
-    let loading = true
-    while(loading) {
-        loading = (await isLoading(commentsEl))
-    }
-}
-let postsStrings = []
-let commentsStrings = []
-const processComments = async postEl => {
-    let commentsEl = postEl.querySelector('[data-testid="UFI2CommentsList/root_depth_0"]')
-    await loadAllComments(commentsEl)
-    let commentsUl = commentsEl.querySelector('ul')
-    let comments = []
-    if(commentsUl) 
-        [...commentsUl.children].forEach(commentLi => {
-            try {
-                let comment = {}
-                let commentBody = commentLi.querySelector('[data-testid="UFI2Comment/body"]')
-                comment.author = commentBody.children[0].children[0].innerHTML
-                comment.authorUrl = commentBody.children[0].children[0].href
-                comment.content = commentBody.children[0].children[1].children[0].children[0].innerHTML.replace(/<\/?[^>]+(>|$)/g, '')
-                comments.push(comment)
-            } catch(err) {
-
-            }
-            
-        })
-    return comments
-}
-//UFI2Comment/body
-//UFI2CommentsPagerRenderer/pager_depth_0
-const processPosts = async () => {
-    let postsElements =  [...document.body.getElementsByClassName('userContentWrapper')]
-    for (postEl of postsElements) {
-        let post = processPost(postEl)
-        let comments = await processComments(postEl)
-        postsStrings.push(`${post.id};${post.author};${post.authorUrl};${post.time};${post.content};${post.likes}`)
-        comments.forEach(comment => {
-            commentsStrings.push(`${post.id};${comment.author};${comment.authorUrl};${comment.content}`)
-        })
-        postEl.parentElement.remove()
-        checkLength()
-    }
-}
-const checkLength = () => {
-    if(postsStrings.length > 1000) {
-        writeToFile('posts',postsStrings.join('\n'))
-        postsStrings.length = 0
-    }
-    if(commentsStrings.length > 1000) {
-        writeToFile('comments',commentsStrings.join('\n'))
-        commentsStrings.length = 0
-    }
 }
 const isNewFeed = () => {
     return new Promise((resolve, reject) => {
@@ -103,38 +105,63 @@ const isNewFeed = () => {
                 window.scrollBy(0, -200)
             },100)
             setTimeout(() => {
-                let posts = [...document.body.getElementsByClassName('userContentWrapper')]
+                posts = [...document.body.getElementsByClassName('userContentWrapper')]
                 if (posts.length > 0) {
                     resolve(true)
                 } else {
                     resolve(false)
                 }
             },500) 
-        }, 1000)
+        }, 700)
     })
 }
-const waitForNewFeed = async () => {
-    let waiting = true
-    let counter = 1
-    while (waiting) {
-        log('LOADING FEED', ``)
-        waiting = !(await isNewFeed())
-        counter ++
+
+
+
+
+/* MAIN PROCESS */
+const processPosts = async () => {
+    let postsElements =  [...document.body.getElementsByClassName('userContentWrapper')]
+    let postsStrings = []
+    let commentsStrings = []
+    for (postEl of postsElements) {
+        post = processPost(postEl)
+        comments = await processComments(postEl)
+        postsStrings.push(`${post.id};${post.author};${post.authorUrl};${post.time};${post.content};${post.likes};${comments.length}`)
+        comments.forEach(comment => {
+            commentsStrings.push(`${post.id};${comment.author};${comment.authorUrl};${comment.content}`)
+        })
+        postEl.parentElement.remove()
+        postEl = null
+        
     }
+    checkLength(postsStrings, commentsStrings)
 }
+
+
 const processPage = async () => {
-    clearContent()
-    for(let i=0; i<20; i++) {
+    window.clear = clear
+    for(let i=0; i<100000; i++) {
+        clear()
         await processPosts()
-        await waitForNewFeed()
+        await waitForFeed()
     }
 }
 processPage()
 
 
-//TODO
+
+/* WRITERS AND STUFF */
+const checkLength = (postsStrings, commentsStrings) => {
+    if(postsStrings.length > 100) {
+        writeToFile('posts',postsStrings.join('\n'))
+    }
+    if(commentsStrings.length > 300) {
+        writeToFile('comments',commentsStrings.join('\n'))
+    }
+}
 const writeToFile = (type, data) => {
-    let a = document.createElement('a')
+    a = document.createElement('a')
     a.href = "data:application/octet-stream,"+encodeURIComponent(data)
     a.download = `${type}.csv`
     a.click()
